@@ -50,8 +50,8 @@ source(here("R", "dforest_growth.R"))
 dforest_growth
 ```
 
-**2. Run the model for 300 years (using the ODE solver) starting with an initial forest size of 10 kg/C and using the following parameters:**
-canopy closure threshold = 50 kg/C
+**2. Run the model for 300 years (using the ODE solver) starting with an initial forest size of 10 kg Carbon and using the following parameters:**
+canopy closure threshold = 50 kg Carbon
 
 K = 250 kg C (carrying capacity)
 
@@ -61,8 +61,8 @@ g = 2 kg/year (linear growth rate after canopy closure)
 
 ```{r}
 years <- seq(from = 1, to = 300) # time sequence of years
-Cinitial <- 10 # initial forest size, kg/C
-canopy_threshold <- 50 # kg/C
+Cinitial <- 10 # initial forest size, kg Carbon
+canopy_threshold <- 50 # kg Carbon
 K <- 250 # carrying capacity, kg C
 r <- 0.01 # exponential growth rate before canopy closure)
 g <- 2 # linear growth rate after canopy closure, kg/year
@@ -112,7 +112,7 @@ r <- rnorm(mean = r, sd = 0.1 * r, n = np)
 g <- rnorm(mean = g, sd = 0.1 * g, n = np)
 canopy_threshold <- rnorm(mean = canopy_threshold, sd = 0.1 * canopy_threshold, n = np)
 K <- rnorm(mean = K, sd = 0.1 * K, n = np)
-X2 = cbind.data.frame(r = r, g = g, canopy_threshold = canopy_threshold, K =K)
+X2 = cbind.data.frame(r = r, g = g, canopy_threshold = canopy_threshold, K = K)
 
 # create  sobel object and get sets of parameters for running the model
 sens_Carbon = sobolSalt(model = NULL, X1, X2, nboot = 300)
@@ -199,9 +199,34 @@ sens_Carbon_maxC$S
 
 ```{r}
 # T (total sensitivity index)
-sens_Carbon_maxC$T
+maxC_T <- as.data.frame(sens_Carbon_maxC$T) %>% 
+  rowid_to_column("parameter") %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "1", replacement = "r")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "2", replacement = "g")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "3", replacement = "canopy_threshold")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "4", replacement = "K"))
+maxC_T
+# X1 = r
+# X2 = g
+# X3 = canopy_threshold
+# X4 = K
+
+# turn this into its own dataframe
 ```
 
+```{r}
+sens_Carbon_meanC <- sensitivity::tell(sens_Carbon, allres$meanC)
+```
+
+```{r}
+# S (first order index)
+sens_Carbon_meanC$S
+```
+
+```{r}
+# T (total sensitivity index)
+sens_Carbon_meanC$T
+```
 
 
 **Discuss what the results of the simulation might mean for climate change impacts on forest growth (e.g. think about what parameters climate change might influence).**
@@ -214,6 +239,7 @@ sens_Carbon_maxC$T
 
 **for initial carbon, carrying capacity, and canopy threshold should the units be kg C instead of kg/C?**
 Clarissa thoughts: I think it should be kg C (it's kilograms of carbon, not kilograms per carbon)
+from Rachel: kg Carbon per year
 
 **confused about the units...units of Carbon vs kg/C...is Carbon equivalent to numbers of trees, as in x kilograms per tree?**
 Clarissa thoughts: I think the forest is measured in kilograms of carbon (which is estimated by the number/size of trees and amount of kg of carbon per trees of each size)
@@ -221,8 +247,7 @@ Clarissa thoughts: I think the forest is measured in kilograms of carbon (which 
 **do r and g both have units of kg/year?**
 Clarissa thoughts: that makes sense to me (or kg C / year to keep units uniform)
 
-**do we pick our own variable name for canopy closure threshold**
-
 **What are S and T?**
 
 **for sobol, why do we have 2 parameter sts, X1 and X2?**
+just the way it works
