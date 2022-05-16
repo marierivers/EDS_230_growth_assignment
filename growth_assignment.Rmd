@@ -15,6 +15,7 @@ library(deSolve)
 library(here)
 library(sensitivity)
 library(tidyverse)
+library(patchwork)
 ```
 
 ## Background
@@ -194,7 +195,12 @@ sens_Carbon_maxC <- sensitivity::tell(sens_Carbon, allres$maxC)
 
 ```{r}
 # S (first order index)
-sens_Carbon_maxC$S
+maxC_S <- sens_Carbon_maxC$S %>% 
+  rowid_to_column("parameter") %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "1", replacement = "r")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "2", replacement = "g")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "3", replacement = "canopy_threshold")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "4", replacement = "K"))
 ```
 
 ```{r}
@@ -210,8 +216,6 @@ maxC_T
 # X2 = g
 # X3 = canopy_threshold
 # X4 = K
-
-# turn this into its own dataframe
 ```
 
 ```{r}
@@ -220,12 +224,52 @@ sens_Carbon_meanC <- sensitivity::tell(sens_Carbon, allres$meanC)
 
 ```{r}
 # S (first order index)
-sens_Carbon_meanC$S
+meanC_S <- sens_Carbon_meanC$S %>% 
+  rowid_to_column("parameter") %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "1", replacement = "r")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "2", replacement = "g")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "3", replacement = "canopy_threshold")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "4", replacement = "K"))
 ```
 
 ```{r}
 # T (total sensitivity index)
-sens_Carbon_meanC$T
+meanC_T <- sens_Carbon_meanC$T %>% 
+  rowid_to_column("parameter") %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "1", replacement = "r")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "2", replacement = "g")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "3", replacement = "canopy_threshold")) %>% 
+  mutate(parameter = str_replace(string = parameter, pattern = "4", replacement = "K"))
+```
+
+```{r fig.width=7}
+maxC_S_plot <- ggplot(maxC_S) +
+  geom_col(aes(y=original, x=parameter, fill=original),position="dodge") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_gradient2(low='firebrick', high='slateblue') + ggtitle("First Order Max Cabon") +
+  coord_flip()
+# based on this, canopy threshold is the least important for max carbon and r is the most important
+
+maxC_T_plot <- ggplot(maxC_T) +
+  geom_col(aes(y=original, x=parameter, fill=original),position="dodge") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_gradient2(low='firebrick', high='slateblue') + ggtitle("Total Rank Max Cabon") +
+  coord_flip()
+
+meanC_S_plot <- ggplot(meanC_S) +
+  geom_col(aes(y=original, x=parameter, fill=original),position="dodge") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_gradient2(low='firebrick', high='slateblue') + ggtitle("First Order Mean Cabon") +
+  coord_flip()
+
+meanC_T_plot <- ggplot(meanC_T) +
+  geom_col(aes(y=original, x=parameter, fill=original),position="dodge") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_gradient2(low='firebrick', high='slateblue') + ggtitle("Total Rank Mean Cabon") +
+  coord_flip()
+
+S_T_plots <- (maxC_S_plot + meanC_S_plot) / (maxC_T_plot + meanC_T_plot)
+S_T_plots
 ```
 
 
@@ -251,3 +295,10 @@ Clarissa thoughts: that makes sense to me (or kg C / year to keep units uniform)
 
 **for sobol, why do we have 2 parameter sts, X1 and X2?**
 just the way it works
+
+from rachel:
+ggplot(sens_lai$S) +
+  geom_col(aes(y=original, x=p_names2, fill=original),position="dodge") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_gradient2(low='firebrick', mid='snow3', high='slateblue') + ggtitle("first order rank LAI") +
+  coord_flip()

@@ -5,8 +5,8 @@
 #' @param Time years
 #' @param C forest size, units of kg carbon
 #' @param parms list of all parameters:
-#'              r - exponential growth rate used before canopy closure has been reached
-#'              g - linear growth rate used once canopy closure has been reached
+#'              r - exponential growth rate used before canopy closure has been reached; units of kg Carbon per year
+#'              g - linear growth rate used once canopy closure has been reached; units of kg Carbon per year
 #'              K - carrying capacity, units of carbon
 #'              canopy_threshold - canopy closure threshold; the size of the forest 
 #'                  at which growth rates change from exponential to linear
