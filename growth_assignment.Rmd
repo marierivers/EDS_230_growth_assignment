@@ -131,7 +131,8 @@ compute_metrics <- function(result) {
 # try function on first parameter set
 compute_metrics(as.data.frame(results))
 ```
-```{r}
+
+```{r message=FALSE, warning=FALSE}
 # need to apply the ode and the compute metrics function to all parameters
 # define a wrapper function to do everything we need (run solver and compute metrics) and send back results for each parameter 
 
