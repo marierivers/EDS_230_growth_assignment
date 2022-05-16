@@ -1,0 +1,191 @@
+---
+title: "EDS_230_Growth_Assignment"
+author: "Clarissa Boyajian, Ryan Munnikhuis, and Marie Rivers"
+date: '2022-05-15'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Growth Assignment
+```{r}
+library(deSolve) 
+library(here)
+library(sensitivity)
+library(tidyverse)
+```
+
+## Background
+
+Consider the following model of forest growth (where forest size is measured in units of carbon (C)):
+
+$$dC/dt = r * C$$
+
+for forest where **C is below a threshold canopy closure** and
+
+$$dC/dt = g * (1 = C/K)$$
+
+for forests where **carbon is at or above the threshold canopy closure**
+
+and K is a carrying capacity in units of Carbon. The size of the forest (C), canopy closure threshold and carrying capacity are all in units of carbon. Think of the canopy closure threshold as the size of the forest at which growth rates change from exponential to linear. Think of _r_ as the early exponential growth rate and _g_ as the linear growth rate once canopy closure has been reached.
+
+C = forest size, units of carbon
+
+T = time, years
+
+r = early exponential growth rate (before canopy closure has been reached)
+
+g = the linear growth rate once canopy closure has been reached
+
+K = carrying capacity, units of carbon
+
+canopy closure threshold = the size of the forest at which growth rates change from exponential to linear
+
+**1. Implement this model in R as a differential equation**
+```{r}
+source(here("R", "dforest_growth.R"))
+
+dforest_growth
+```
+
+**2. Run the model for 300 years (using the ODE solver) starting with an initial forest size of 10 kg/C and using the following parameters:**
+canopy closure threshold = 50 kg/C
+
+K = 250 kg C (carrying capacity)
+
+r = 0.01 (exponential growth rate before canopy closure)
+
+g = 2 kg/year (linear growth rate after canopy closure)
+```{r}
+years <- seq(from = 1, to = 300) # time sequence of years
+Cinitial <- 10 # initial forest size, kg/C
+canopy_threshold <- 50 # kg/C
+K <- 250 # carrying capacity, kg C
+r <- 0.01 # exponential growth rate before canopy closure)
+g <- 2 #linear growth rate after canopy closure, kg/year
+
+# set up parameter list
+parms <- list(canopy_threshold = canopy_threshold, K = K, r = r, g = r)
+
+results <- ode(y = Cinitial, times = years, func = dforest_growth, parms = parms, method = "lsoda")
+
+colnames(results) = c("year", "carbon")
+```
+
+Graph the results
+```{r fig.width=7}
+carbon_graph <- ggplot(data = as.data.frame(results), aes(x = year, y = carbon)) +
+  geom_point() +
+  labs(x = "Year", y = "Forest Size (Carbon)",
+       title = "Modeled Forest Size",
+       subtitle = paste0("initial size = ", Cinitial, " kg C, r = ", r, " kg/year, g = ", g, "kg/year, canopy threshold = ", canopy_threshold, "kg C, carrying capacity = ", K, " kg C"))
+carbon_graph
+# check that units are stated correctly
+```
+
+**3. Run a sobol sensitivity analysis that explores how the estimated maximum and mean forest size (e.g. maximum and mean values of C over the 300 years) varies with the pre canopy closure growth rate (_r_) and post-canopy closure rate (_g_) and canopy closure threshold and carrying capacity (K).**
+
+Assume that the parameters are all normally distributed with means as given above and standard deviation of 10% of mean value.
+```{r}
+# want to learn about sensitivity with all the parameters normally distributed 
+# set the number of parameters
+np <- 100
+
+r <- rnorm(mean = r, sd = 0.1 * r, n = np)
+g <- rnorm(mean = g, sd = 0.1 * g, n = np)
+canopy_threshold <- rnorm(mean = canopy_threshold, sd = 0.1 * canopy_threshold, n = np)
+K <- rnorm(mean = K, sd = 0.1 * K, n = np)
+X1 = cbind.data.frame(r=r, g=g, canopy_threshold=canopy_threshold, K=K)
+
+# repeat to get our second set of samples
+r <- rnorm(mean = r, sd = 0.1 * r, n = np)
+g <- rnorm(mean = g, sd = 0.1 * g, n = np)
+canopy_threshold <- rnorm(mean = canopy_threshold, sd = 0.1 * canopy_threshold, n = np)
+K <- rnorm(mean = K, sd = 0.1 * K, n = np)
+X2 = cbind.data.frame(r=r, g=g, canopy_threshold=canopy_threshold, K=K)
+
+# create  sobel object and get sets of parameters for running the model
+sens_Carbon = sobolSalt(model = NULL, X1, X2, nboot = 300)
+
+# our parameter sets are
+head(sens_Carbon$X)
+```
+
+
+```{r}
+# lets add names 
+colnames(sens_Carbon$X) = c("r", "g", "canopy_threshold", "K")
+head(sens_Carbon$X)
+```
+
+Create two additional functions that will compute the metrics we want and run the ODE solver and compute the metrics (a wrapper function that is a workflow to call the ODE solver and then compute metrics)
+```{r}
+compute_metrics <- function(result) {
+  maxC <- max(result$carbon)
+  meanC <- mean(result$carbon)
+  return(list(maxC = maxC, meanC = meanC))
+}
+
+# try function on first parameter set
+compute_metrics(as.data.frame(results))
+```
+```{r}
+# need to apply the ode and the compute metrics function to all parameters
+# define a wrapper function to do everything we need (run solver and compute metrics) and send back results for each parameter 
+
+p_wrapper <- function(r, g, canopy_threshold, K, Cinitial, simtimes, func) {
+  parms <- list(r=r, g=g, canopy_threshold=canopy_threshold, K=K)
+  results <- ode(y = Cinitial, times = years, func = func, parms = parms, method = "lsoda")
+  colnames(results) = c("year", "carbon")
+  
+  # get metrics
+  metrics <- compute_metrics(as.data.frame(results))
+  return(metrics)
+}
+
+# now use pmap
+allresults <- as.data.frame(sens_Carbon$X) %>% 
+  pmap(p_wrapper, Cinitial = Cinitial, simtimes = years, func = dforest_growth)
+```
+
+```{r}
+# extract out results from pmap into a data frame
+allres <- allresults %>% 
+  map_dfr(`[`, c("maxC", "meanC"))
+```
+
+
+```{r}
+# create boxplot
+tmp <- allres %>% 
+  pivot_longer(names_to = "metric", values_to = "value")
+
+ggplot(tmp, aes(x = metric, y = value, col = metric)) +
+  geom_box()
+```
+
+
+
+Graph the results of the sensitivity analysis as a box plot of maximum forest size and a plot of the two Sobol indices (S and T)
+```{r}
+
+```
+
+**Discuss what the results of the simulation might mean for climate change impacts on forest growth (e.g. think about what parameters climate change might influence).**
+
+# Questions for office hours
+**for questions 1, do we have to do anything besides write the function?**
+
+**for initial carbon, carrying capacity, and canopy threshold should the units be kg C instead of kg/C?**
+
+**confused about the units...units of Carbon vs kg/C...is Carbon equivalent to numbers of trees, as in x kilograms per tree?**
+
+**do r and g both have units of kg/year?**
+
+**do we pick our own variable name for canopy closure threshold**
+
+**What are S and T?**
+
+**for sobol, why do we have 2 parameter sts, X1 and X2?**
