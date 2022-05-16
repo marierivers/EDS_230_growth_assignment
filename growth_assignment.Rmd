@@ -58,16 +58,17 @@ K = 250 kg C (carrying capacity)
 r = 0.01 (exponential growth rate before canopy closure)
 
 g = 2 kg/year (linear growth rate after canopy closure)
+
 ```{r}
 years <- seq(from = 1, to = 300) # time sequence of years
 Cinitial <- 10 # initial forest size, kg/C
 canopy_threshold <- 50 # kg/C
 K <- 250 # carrying capacity, kg C
 r <- 0.01 # exponential growth rate before canopy closure)
-g <- 2 #linear growth rate after canopy closure, kg/year
+g <- 2 # linear growth rate after canopy closure, kg/year
 
 # set up parameter list
-parms <- list(canopy_threshold = canopy_threshold, K = K, r = r, g = r)
+parms <- list(canopy_threshold = canopy_threshold, K = K, r = r, g = g)
 
 results <- ode(y = Cinitial, times = years, func = dforest_growth, parms = parms, method = "lsoda")
 
@@ -76,11 +77,17 @@ colnames(results) = c("year", "carbon")
 
 Graph the results
 ```{r fig.width=7}
-carbon_graph <- ggplot(data = as.data.frame(results), aes(x = year, y = carbon)) +
+carbon_graph <- ggplot(data = as.data.frame(results), 
+                       aes(x = year, y = carbon)) +
   geom_point() +
-  labs(x = "Year", y = "Forest Size (Carbon)",
+  labs(x = "Year", y = "Forest Size (kg Carbon)",
        title = "Modeled Forest Size",
-       subtitle = paste0("initial size = ", Cinitial, " kg C, r = ", r, " kg/year, g = ", g, "kg/year, canopy threshold = ", canopy_threshold, "kg C, carrying capacity = ", K, " kg C"))
+       subtitle = paste0("initial size = ", Cinitial, " kg C, r = ", 
+                         r, " kg/year, g = ", g, "kg/year, canopy threshold = ", 
+                         canopy_threshold, "kg C, carrying capacity = ", K, " kg C")) +
+  theme(title = element_text(size = 16),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12))
 carbon_graph
 # check that units are stated correctly
 ```
@@ -95,16 +102,17 @@ np <- 100
 
 r <- rnorm(mean = r, sd = 0.1 * r, n = np)
 g <- rnorm(mean = g, sd = 0.1 * g, n = np)
-canopy_threshold <- rnorm(mean = canopy_threshold, sd = 0.1 * canopy_threshold, n = np)
+canopy_threshold <- rnorm(mean = canopy_threshold, 
+                          sd = 0.1 * canopy_threshold, n = np)
 K <- rnorm(mean = K, sd = 0.1 * K, n = np)
-X1 = cbind.data.frame(r=r, g=g, canopy_threshold=canopy_threshold, K=K)
+X1 = cbind.data.frame(r = r, g = g, canopy_threshold = canopy_threshold, K = K)
 
 # repeat to get our second set of samples
 r <- rnorm(mean = r, sd = 0.1 * r, n = np)
 g <- rnorm(mean = g, sd = 0.1 * g, n = np)
 canopy_threshold <- rnorm(mean = canopy_threshold, sd = 0.1 * canopy_threshold, n = np)
 K <- rnorm(mean = K, sd = 0.1 * K, n = np)
-X2 = cbind.data.frame(r=r, g=g, canopy_threshold=canopy_threshold, K=K)
+X2 = cbind.data.frame(r = r, g = g, canopy_threshold = canopy_threshold, K =K)
 
 # create  sobel object and get sets of parameters for running the model
 sens_Carbon = sobolSalt(model = NULL, X1, X2, nboot = 300)
@@ -123,9 +131,11 @@ head(sens_Carbon$X)
 Create two additional functions that will compute the metrics we want and run the ODE solver and compute the metrics (a wrapper function that is a workflow to call the ODE solver and then compute metrics)
 ```{r}
 compute_metrics <- function(result) {
+  
   maxC <- max(result$carbon)
   meanC <- mean(result$carbon)
   return(list(maxC = maxC, meanC = meanC))
+  
 }
 
 # try function on first parameter set
@@ -137,53 +147,79 @@ compute_metrics(as.data.frame(results))
 # define a wrapper function to do everything we need (run solver and compute metrics) and send back results for each parameter 
 
 p_wrapper <- function(r, g, canopy_threshold, K, Cinitial, simtimes, func) {
-  parms <- list(r=r, g=g, canopy_threshold=canopy_threshold, K=K)
+  
+  parms <- list(r = r, g = g, canopy_threshold = canopy_threshold, K = K)
   results <- ode(y = Cinitial, times = years, func = func, parms = parms, method = "lsoda")
-  colnames(results) = c("year", "carbon")
+  colnames(results) <- c("year", "carbon")
   
   # get metrics
   metrics <- compute_metrics(as.data.frame(results))
+  
   return(metrics)
+  
 }
 
-# now use pmap
-allresults <- as.data.frame(sens_Carbon$X) %>% 
-  pmap(p_wrapper, Cinitial = Cinitial, simtimes = years, func = dforest_growth)
+# # now use pmap
+# allresults <- as.data.frame(sens_Carbon$X) %>% 
+#   pmap(p_wrapper, Cinitial = Cinitial, simtimes = years, func = dforest_growth)
+# 
+# # extract out results from pmap into a data frame
+# allres <- allresults %>%
+#   map_dfr(`[`, c("maxC", "meanC"))
+
+## Clarissa note: can shorten process above by using `pmap_dfr` which returns results as an rbound dataframe
+allres <- as.data.frame(sens_Carbon$X) %>% 
+  pmap_dfr(p_wrapper, Cinitial = Cinitial, simtimes = years, func = dforest_growth)
 ```
 
-```{r}
-# extract out results from pmap into a data frame
-allres <- allresults %>% 
-  map_dfr(`[`, c("maxC", "meanC"))
-```
 
+Graph the results of the sensitivity analysis as a box plot of maximum forest size and a plot of the two Sobol indices (S and T)
 
 ```{r}
 # create boxplot
 tmp <- allres %>% 
-  pivot_longer(names_to = "metric", values_to = "value")
+  pivot_longer(cols = 1:2, 
+               names_to = "metric", 
+               values_to = "value")
 
-ggplot(tmp, aes(x = metric, y = value, col = metric)) +
-  geom_box()
+ggplot(data = tmp, 
+       aes(x = metric, y = value, col = metric)) +
+  geom_boxplot()
 ```
 
 
-
-Graph the results of the sensitivity analysis as a box plot of maximum forest size and a plot of the two Sobol indices (S and T)
 ```{r}
-
+sens_Carbon_maxC <- sensitivity::tell(sens_Carbon, allres$maxC)
 ```
+
+```{r}
+# S (first order index)
+sens_Carbon_maxC$S
+```
+
+```{r}
+# T (total sensitivity index)
+sens_Carbon_maxC$T
+```
+
+
 
 **Discuss what the results of the simulation might mean for climate change impacts on forest growth (e.g. think about what parameters climate change might influence).**
+
+
+
 
 # Questions for office hours
 **for questions 1, do we have to do anything besides write the function?**
 
 **for initial carbon, carrying capacity, and canopy threshold should the units be kg C instead of kg/C?**
+Clarissa thoughts: I think it should be kg C (it's kilograms of carbon, not kilograms per carbon)
 
 **confused about the units...units of Carbon vs kg/C...is Carbon equivalent to numbers of trees, as in x kilograms per tree?**
+Clarissa thoughts: I think the forest is measured in kilograms of carbon (which is estimated by the number/size of trees and amount of kg of carbon per trees of each size)
 
 **do r and g both have units of kg/year?**
+Clarissa thoughts: that makes sense to me (or kg C / year to keep units uniform)
 
 **do we pick our own variable name for canopy closure threshold**
 
