@@ -2,7 +2,9 @@
 title: "EDS_230_Growth_Assignment"
 author: "Clarissa Boyajian, Ryan Munnikhuis, and Marie Rivers"
 date: '2022-05-15'
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -272,33 +274,6 @@ S_T_plots <- (maxC_S_plot + meanC_S_plot) / (maxC_T_plot + meanC_T_plot)
 S_T_plots
 ```
 
-
 **Discuss what the results of the simulation might mean for climate change impacts on forest growth (e.g. think about what parameters climate change might influence).**
 
-
-
-
-# Questions for office hours
-**for questions 1, do we have to do anything besides write the function?**
-
-**for initial carbon, carrying capacity, and canopy threshold should the units be kg C instead of kg/C?**
-Clarissa thoughts: I think it should be kg C (it's kilograms of carbon, not kilograms per carbon)
-from Rachel: kg Carbon per year
-
-**confused about the units...units of Carbon vs kg/C...is Carbon equivalent to numbers of trees, as in x kilograms per tree?**
-Clarissa thoughts: I think the forest is measured in kilograms of carbon (which is estimated by the number/size of trees and amount of kg of carbon per trees of each size)
-
-**do r and g both have units of kg/year?**
-Clarissa thoughts: that makes sense to me (or kg C / year to keep units uniform)
-
-**What are S and T?**
-
-**for sobol, why do we have 2 parameter sts, X1 and X2?**
-just the way it works
-
-from rachel:
-ggplot(sens_lai$S) +
-  geom_col(aes(y=original, x=p_names2, fill=original),position="dodge") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_gradient2(low='firebrick', mid='snow3', high='slateblue') + ggtitle("first order rank LAI") +
-  coord_flip()
+The parameter `r`, which is the exponential growth rate used before canopy closure has been reached, contributes most to both maximum carbon and mean carbon when considered on its own and when interacting with other parameters. Climate change may affect the growth rate of young trees (ie trees that have not grown to canopy threshold) more than mature tree. Young trees are more susceptible to die if they experience a water shortage or are damaged by severe weather events because their root system and branch systems are not fully formed.
